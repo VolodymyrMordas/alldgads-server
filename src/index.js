@@ -1,9 +1,44 @@
 const { ApolloServer, gql } = require('apollo-server-express');
 const express = require('express');
+const session = require('express-session');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
 const USER_SECRET = 'USER_SECRET';
+
+const app = express();
+
+const sessionOptions = {
+  key: 'token',
+  secret: USER_SECRET,
+  resave: false,
+  rolling: true,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    maxAge: 15 * 60 * 1000,
+  },
+};
+
+const corsOptions = {
+  origin: `http://localhost:4000`,
+  credentials: true,
+};
+
+app.use(session(sessionOptions));
+app.use(cors(corsOptions));
+
+app.use((req, res, next) => {
+  // checks for user in cookies and adds userId to the requests
+  // console.log(req.session.token);
+
+  const { token } = req.session;
+  if (token) {
+    const { username } = jwt.verify(token, USER_SECRET);
+    req.username = username;
+  }
+
+  next();
+});
 
 const typeDefs = gql`
     type User {
@@ -11,18 +46,22 @@ const typeDefs = gql`
         email: String
         password: String
     }
-
     type Query {
         users: [User]
     }
-
     type Mutation {
         signUp(name: String, email: String, password: String): User
         login(name: String, password: String): User
     }
 `;
 
-const db = [];
+const db = [
+  {
+    name: 'Andrii',
+    email: 'amulyk@lectrum.io',
+    password: 'secret',
+  },
+];
 
 const resolvers = {
   Query: {
@@ -50,47 +89,34 @@ const resolvers = {
       }
 
       const token = jwt.sign({ username: 'name' }, USER_SECRET);
-      ctx.res.cookie('token', token, { maxAge: 900000, httpOnly: true });
+      ctx.req.session.token = token;
 
       return user;
-    }
-  }
+    },
+  },
 };
 
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  context: ({ req }) => {
-    return { ...req }
+  context: ({ req, res }) => {
+    return { req, res };
+  },
+  playground: {
+    settings: {
+      "request.credentials": "include"
+    }
   }
-});
-
-const app = express();
-
-const corsOptions = {
-  origin: 'http://localhost:4000/',
-  credentials: true
-};
-
-app.use(cors(corsOptions));
-app.use(cookieParser());
-
-app.use((req, res, next) => { // checks for user in cookies and adds userId to the requests
-  const { token } = req.cookies;
-  if (token) {
-    const { username } = jwt.verify(token, USER_SECRET);
-    req.username = username;
-  }
-
-  next();
 });
 
 server.applyMiddleware({
   app,
   path: '/',
-  cors: false, // disables the apollo-server-express cors to allow the cors middleware use
+  cors: false,
 });
 
 app.listen({ port: 4000 }, () =>
-  console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`)
+  console.log(
+    `🚀 Server ready at http://localhost:4000${server.graphqlPath}`,
+  ),
 );
