@@ -1,53 +1,96 @@
-const { ApolloServer, gql } = require('apollo-server');
+const { ApolloServer, gql } = require('apollo-server-express');
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
+const USER_SECRET = 'USER_SECRET';
 
 const typeDefs = gql`
-    # Comments in GraphQL strings (such as this one) start with the hash (#) symbol.
-
-    # This "Book" type defines the queryable fields for every book in our data source.
-    type Book {
-        title: String
-        author: String
+    type User {
+        name: String
+        email: String
+        password: String
     }
 
-    # The "Query" type is special: it lists all of the available queries that
-    # clients can execute, along with the return type for each. In this
-    # case, the "books" query returns an array of zero or more Books (defined above).
     type Query {
-        books: [Book]
+        users: [User]
     }
 
     type Mutation {
-        addBook(title: String, author: String): Book
+        signUp(name: String, email: String, password: String): User
+        login(name: String, password: String): User
     }
 `;
 
-const books = [
-  {
-    title: 'Harry Potter and the Chamber of Secrets',
-    author: 'J.K. Rowling',
-  },
-  {
-    title: 'Jurassic Park',
-    author: 'Michael Crichton',
-  },
-];
+const db = [];
 
 const resolvers = {
   Query: {
-    books: () => books,
+    users: (_, __, ctx) => {
+      console.log(ctx.req.username);
+      return db;
+    },
   },
   Mutation: {
-    addBook: (_, book) => {
-      books.push(book);
+    signUp: (_, user) => {
+      db.push(user);
 
-      return book;
+      return user;
+    },
+    login: (_, { name, password }, ctx) => {
+      const user = db.find((currentUser) => currentUser.name === name);
+
+      if (!user) {
+        throw new Error(`No such user found with this name ${name}`);
+      }
+      const isUserValid = user.password === password;
+
+      if (!isUserValid) {
+        throw new Error(`password is not valid!`);
+      }
+
+      const token = jwt.sign({ username: 'name' }, USER_SECRET);
+      ctx.res.cookie('token', token, { maxAge: 900000, httpOnly: true });
+
+      return user;
     }
   }
 };
 
-const server = new ApolloServer({ typeDefs, resolvers });
-
-// The `listen` method launches a web server.
-server.listen().then(({ url }) => {
-  console.log(`🚀  Server ready at ${url}`);
+const server = new ApolloServer({
+  typeDefs,
+  resolvers,
+  context: ({ req }) => {
+    return { ...req }
+  }
 });
+
+const app = express();
+
+const corsOptions = {
+  origin: 'http://localhost:4000/',
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+app.use(cookieParser());
+
+app.use((req, res, next) => { // checks for user in cookies and adds userId to the requests
+  const { token } = req.cookies;
+  if (token) {
+    const { username } = jwt.verify(token, USER_SECRET);
+    req.username = username;
+  }
+
+  next();
+});
+
+server.applyMiddleware({
+  app,
+  path: '/',
+  cors: false, // disables the apollo-server-express cors to allow the cors middleware use
+});
+
+app.listen({ port: 4000 }, () =>
+  console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`)
+);
