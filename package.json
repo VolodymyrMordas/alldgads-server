@@ -1,0 +1,12 @@
+{
+  "name": "alldgads-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:amulyk/alldgads-server.git",
+  "author": "Andrii Mulyk <amulyk@lectrum.io>",
+  "license": "MIT",
+  "dependencies": {
+    "apollo-server": "^2.9.13",
+    "graphql": "^14.5.8"
+  }
+}
