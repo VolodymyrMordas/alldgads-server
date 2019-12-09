@@ -57,17 +57,24 @@ const typeDefs = gql`
 
 const db = [
   {
-    name: 'Andrii',
-    email: 'amulyk@lectrum.io',
-    password: 'secret',
+    name: 'Oliver',
+    email: 'oliver@lectrum.io',
+    password: 'oliverPassword',
   },
 ];
 
 const resolvers = {
   Query: {
     users: (_, __, ctx) => {
-      console.log(ctx.req.username);
-      return db;
+      if (ctx.req.username) {
+        return db;
+      } else {
+        return db.map(({ name, email }) => ({
+          name,
+          email,
+          password: null
+        }))
+      }
     },
   },
   Mutation: {
@@ -88,7 +95,7 @@ const resolvers = {
         throw new Error(`password is not valid!`);
       }
 
-      const token = jwt.sign({ username: 'name' }, USER_SECRET);
+      const token = jwt.sign({ username: name }, USER_SECRET);
       ctx.req.session.token = token;
 
       return user;
