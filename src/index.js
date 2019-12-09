@@ -20,7 +20,7 @@ const sessionOptions = {
 };
 
 const corsOptions = {
-  origin: `http://localhost:4000`,
+  origin: `http://localhost:3000`,
   credentials: true,
 };
 
@@ -42,16 +42,16 @@ app.use((req, res, next) => {
 
 const typeDefs = gql`
     type User {
-        name: String
-        email: String
+        name: String!
+        email: String!
         password: String
     }
     type Query {
-        users: [User]
+        users: [User]!
     }
     type Mutation {
-        signUp(name: String, email: String, password: String): User
-        login(name: String, password: String): User
+        signUp(name: String!, email: String!, password: String!): User!
+        login(name: String!, password: String!): User!
     }
 `;
 
